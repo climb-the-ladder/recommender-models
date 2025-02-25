@@ -2,15 +2,18 @@ import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics import classification_report
 from imblearn.over_sampling import SMOTE
 import joblib
+from xgboost import XGBClassifier
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-dataset_path = os.path.join(script_dir, "../recommender-data/processed/processed_dataset.csv")
-df = pd.read_csv(dataset_path)
+csv_path = os.path.normpath(os.path.join(script_dir, "../recommender-data/processed/processed_dataset.csv"))
+df = pd.read_csv(csv_path)
 
+# Rename columns consistently
 df = df.rename(columns={
     "Extracurricular_Activities": "Extracurriculars",
     "Field_Specific_Courses": "Courses",
@@ -19,54 +22,63 @@ df = df.rename(columns={
     "Analytical_Skills": "AnalyticalSkills"
 })
 
-missing_cols = df.columns[df.isnull().any()].tolist()
-print(f"⚠️ Missing values detected in: {missing_cols}")
-
-#Fill missing values before converting Yes/No to 1/0
+# Convert categorical Yes/No columns to binary
 categorical_columns = ["Extracurriculars", "InternshipExperience", "Courses", "Certifications"]
 for col in categorical_columns:
-    df[col] = df[col].fillna("No")  # Assume missing values mean "No"
-    df[col] = df[col].map({"Yes": 1, "No": 0})  # Convert to integers
+    df[col] = df[col].fillna("No").map({"Yes": 1, "No": 0})
 
 df.fillna(0, inplace=True)
 
-X = df.drop(columns=["Career"])  # Features
-y = df["Career"]  # Target
+# Features and Target x features y target
+X = df.drop(columns=["Career"])
+y = df["Career"]
 
-# Balance the dataset using SMOTE
+# Encode categorical target labels FIRST - important
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+
+# apply SMOTE after encoding (might remove later)
 smote = SMOTE(random_state=42)
-X_balanced, y_balanced = smote.fit_resample(X, y)
+X_balanced, y_balanced = smote.fit_resample(X, y_encoded)
 
-# Increase weight for technical features to prioritize them
-feature_weights = {
-    "GPA": 1.0,  
-    "Coding_Skills": 1.5, 
-    "Problem_Solving_Skills": 1.5,
-    "AnalyticalSkills": 1.5,
-    "InternshipExperience": 1.3,
-    "Research_Experience": 1.2,
-    "Projects": 1.2
-}
-
-# Multiply important feature columns by their respective weights
-for feature, weight in feature_weights.items():
-    if feature in X_balanced.columns:
-        X_balanced[feature] = X_balanced[feature] * weight
-
-# the split for training/testing sets
+# Train-Test split
 X_train, X_test, y_train, y_test = train_test_split(X_balanced, y_balanced, test_size=0.2, random_state=42)
 
-# Scale numerical features
+# Scale features
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# the Random Forest model
-model = RandomForestClassifier(n_estimators=150, random_state=42)
-model.fit(X_train_scaled, y_train)
+# Random Forest model
+rf_model = RandomForestClassifier(
+    n_estimators=200, 
+    class_weight='balanced',
+    random_state=42
+)
+rf_model.fit(X_train_scaled, y_train)
 
-# Save model & scaler
-joblib.dump(model, os.path.join(script_dir, "career_recommender.pkl"))
+# XGBoost model
+xgb_model = XGBClassifier(
+    n_estimators=300,
+    learning_rate=0.05,
+    max_depth=8,
+    objective='multi:softmax',
+    num_class=len(label_encoder.classes_),
+    eval_metric='mlogloss',
+    random_state=42
+)
+xgb_model.fit(X_train_scaled, y_train)
+
+# to evaluate models
+print("Random Forest Classification Report:")
+print(classification_report(y_test, rf_model.predict(X_test_scaled), target_names=label_encoder.classes_))
+
+print("\nXGBoost Classification Report:")
+print(classification_report(y_test, xgb_model.predict(X_test_scaled), target_names=label_encoder.classes_))
+
+joblib.dump(rf_model, os.path.join(script_dir, "career_rf.pkl"))
+joblib.dump(xgb_model, os.path.join(script_dir, "career_xgb.pkl"))
 joblib.dump(scaler, os.path.join(script_dir, "scaler.pkl"))
+joblib.dump(label_encoder, os.path.join(script_dir, "label_encoder.pkl"))
 
-print(f"✅ Model trained with balanced data and saved!")
+print("✅ Models trained and saved successfully.")
