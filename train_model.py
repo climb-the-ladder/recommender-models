@@ -13,7 +13,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 csv_path = os.path.normpath(os.path.join(script_dir, "../recommender-data/processed/processed_dataset.csv"))
 df = pd.read_csv(csv_path)
 
-# Rename columns consistently
+# Rename columns consistently (so it matches our frontend and backend)
 df = df.rename(columns={
     "Extracurricular_Activities": "Extracurriculars",
     "Field_Specific_Courses": "Courses",
@@ -22,7 +22,7 @@ df = df.rename(columns={
     "Analytical_Skills": "AnalyticalSkills"
 })
 
-# Convert categorical Yes/No columns to binary
+# Convert categorical Yes/No columns to binary - required by xgboost, dont remove
 categorical_columns = ["Extracurriculars", "InternshipExperience", "Courses", "Certifications"]
 for col in categorical_columns:
     df[col] = df[col].fillna("No").map({"Yes": 1, "No": 0})
