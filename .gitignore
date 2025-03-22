@@ -1,2 +1,5 @@
 career_recommender.pkl
 scaler.pkl
+career_rf.pkl
+career_xgb.pkl
+label_encoder.pkl
