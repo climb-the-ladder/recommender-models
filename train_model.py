@@ -9,47 +9,32 @@ import joblib
 from xgboost import XGBClassifier
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-
 csv_path = os.path.normpath(os.path.join(script_dir, "../recommender-data/processed/processed_dataset.csv"))
+
+# Load the preprocessed dataset
 df = pd.read_csv(csv_path)
 
-# Rename columns consistently (so it matches our frontend and backend)
-df = df.rename(columns={
-    "Extracurricular_Activities": "Extracurriculars",
-    "Field_Specific_Courses": "Courses",
-    "Industry_Certifications": "Certifications",
-    "Internships": "InternshipExperience",
-    "Analytical_Skills": "AnalyticalSkills"
-})
+# Features and Target
+X = df.drop(columns=["career_aspiration"])
+y = df["career_aspiration"]
 
-# Convert categorical Yes/No columns to binary - required by xgboost, dont remove
-categorical_columns = ["Extracurriculars", "InternshipExperience", "Courses", "Certifications"]
-for col in categorical_columns:
-    df[col] = df[col].fillna("No").map({"Yes": 1, "No": 0})
-
-df.fillna(0, inplace=True)
-
-# Features and Target x features y target
-X = df.drop(columns=["Career"])
-y = df["Career"]
-
-# Encode categorical target labels FIRST - important
+# Encode target labels
 label_encoder = LabelEncoder()
 y_encoded = label_encoder.fit_transform(y)
 
-# apply SMOTE after encoding (might remove later)
+# Apply SMOTE for balancing
 smote = SMOTE(random_state=42)
 X_balanced, y_balanced = smote.fit_resample(X, y_encoded)
 
-# Train-Test split
+# Train-Test Split
 X_train, X_test, y_train, y_test = train_test_split(X_balanced, y_balanced, test_size=0.2, random_state=42)
 
-# Scale features
+# Feature Scaling
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# Random Forest model
+# Random Forest Classifier
 rf_model = RandomForestClassifier(
     n_estimators=200, 
     class_weight='balanced',
@@ -57,7 +42,7 @@ rf_model = RandomForestClassifier(
 )
 rf_model.fit(X_train_scaled, y_train)
 
-# XGBoost model
+# XGBoost Classifier
 xgb_model = XGBClassifier(
     n_estimators=300,
     learning_rate=0.05,
@@ -69,16 +54,17 @@ xgb_model = XGBClassifier(
 )
 xgb_model.fit(X_train_scaled, y_train)
 
-# to evaluate models
-print("Random Forest Classification Report:")
+# Model Evaluation
+print("✅ Random Forest Classification Report:")
 print(classification_report(y_test, rf_model.predict(X_test_scaled), target_names=label_encoder.classes_))
 
-print("\nXGBoost Classification Report:")
+print("\n✅ XGBoost Classification Report:")
 print(classification_report(y_test, xgb_model.predict(X_test_scaled), target_names=label_encoder.classes_))
 
+# Save Models, Scaler, and Label Encoder
 joblib.dump(rf_model, os.path.join(script_dir, "career_rf.pkl"))
 joblib.dump(xgb_model, os.path.join(script_dir, "career_xgb.pkl"))
 joblib.dump(scaler, os.path.join(script_dir, "scaler.pkl"))
 joblib.dump(label_encoder, os.path.join(script_dir, "label_encoder.pkl"))
 
-print("✅ Models trained and saved successfully.")
+print("\n✅ Models, scaler, and label encoder saved successfully.")
