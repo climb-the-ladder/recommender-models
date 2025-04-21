@@ -14,10 +14,10 @@ from sklearn.metrics import classification_report, accuracy_score, f1_score
 from sklearn.ensemble import StackingClassifier
 from sklearn.linear_model import LogisticRegression
 
-from src.models.lgbm_model import build_lgbm
-from src.models.rf_model import build_rf
-from src.models.svm_model import build_svm
-from src.models.mlp_model import build_mlp
+from models.lgbm_model import build_lgbm
+from models.rf_model import build_rf
+from models.svm_model import build_svm
+from models.mlp_model import build_mlp
 
 # ─────────────────── Settings ───────────────────
 SEED        = 42
