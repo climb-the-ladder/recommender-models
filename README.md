@@ -1,42 +1,118 @@
-AI / Machine Learning Components Used
-This project leverages several machine learning models and AI techniques to predict career aspirations based on user input data. Below is a breakdown of the AI/ML components:
+# Career Recommender Models Repository
 
-Models
-RandomForestClassifier (from scikit-learn)
+This repository contains the machine learning models and analysis tools for the Career Recommendation System.
 
-Type: Ensemble Learning (Bagging)
+## Repository Structure
 
-Purpose: Predicts career_aspiration by building multiple decision trees and combining their results for improved accuracy and generalization.
 
-XGBClassifier (from XGBoost)
+## Models
 
-Type: Gradient Boosted Decision Trees
+### XGBoost Career Prediction Model
 
-Purpose: Advanced model optimized for performance on structured data, widely used in real-world AI tasks and competitions.
+The main model (`career_xgb.pkl`) is an XGBoost classifier trained to predict suitable career paths based on a student's academic performance across different subjects. The model takes subject scores as input and outputs a recommended career field.
 
-Data Processing & AI Techniques
-SMOTE (Synthetic Minority Over-sampling Technique)
+Key features:
+- Trained on processed student academic data
+- Uses 7 subject scores as features (math, history, physics, chemistry, biology, english, geography)
+- Predicts from multiple career categories including Software Engineer, Doctor, Lawyer, etc.
+- Achieves high accuracy in matching students to appropriate career paths
 
-Balances the dataset by generating synthetic samples of the minority class to improve model fairness and accuracy.
+### Supporting Models
 
-StandardScaler
+1. **scaler.pkl**: StandardScaler that normalizes input features to improve model performance
+2. **label_encoder.pkl**: LabelEncoder that converts between career field names and their numerical representations
 
-Scales numerical features to have zero mean and unit variance, helping models train more efficiently.
+## Data Insights
 
-LabelEncoder
+For a detailed analysis of the data, run the insights generation script:
 
-Encodes categorical target labels (career_aspiration) into numeric form for model training.
+```bash
+cd recommender-models
+python insights.py
+```
 
-Model Evaluation
-Classification Report (Precision, Recall, F1-Score, Support)
+This will generate a comprehensive PDF report with visualizations and key insights about:
+- Career distributions
+- Subject correlations
+- Career-subject relationships
+- Key insights and recommendations
 
-Evaluates the performance of both models to ensure accuracy and balanced predictions.
+The report is saved to `recommender-insights/reports/career_insights_report.pdf`.
 
-Model Persistence
-joblib
+## Training the Model
 
-Saves trained models, scalers, and label encoders as .pkl files for future predictions and deployment.
+To retrain the model with updated data:
 
-Summary
-This AI module builds and evaluates predictive models capable of recommending career paths based on user-provided data. Techniques like Random Forest, XGBoost, SMOTE balancing, and feature scaling ensure that the system is robust, fair, and ready for real-world deployment.
+```bash
+python train_model.py
+```
+
+The training script:
+1. Loads the processed dataset
+2. Preprocesses the data (scaling, encoding)
+3. Splits the data into training and testing sets
+4. Trains an XGBoost classifier
+5. Evaluates model performance
+6. Saves the model and preprocessing components
+
+## Model Usage
+
+The model is used by the AI service component of the Career Recommendation System. It can be loaded and used as follows:
+
+```python
+import joblib
+import pandas as pd
+
+# Load the model and preprocessing components
+model = joblib.load('career_xgb.pkl')
+scaler = joblib.load('scaler.pkl')
+label_encoder = joblib.load('label_encoder.pkl')
+
+# Example input data
+input_data = {
+    "math_score": 92,
+    "history_score": 75,
+    "physics_score": 94,
+    "chemistry_score": 96,
+    "biology_score": 89,
+    "english_score": 80,
+    "geography_score": 78
+}
+
+# Prepare the input
+features = pd.DataFrame([input_data])
+features_scaled = scaler.transform(features)
+
+# Make prediction
+predicted_label = model.predict(features_scaled)[0]
+predicted_career = label_encoder.inverse_transform([predicted_label])[0]
+
+print(f"Recommended Career: {predicted_career}")
+```
+
+## Model Performance
+
+The XGBoost model achieves:
+- High accuracy in predicting appropriate career paths
+- Good generalization to new student data
+- Balanced precision and recall across different career categories
+
+## Dependencies
+
+- scikit-learn: For data preprocessing and model evaluation
+- xgboost: For the gradient boosting model
+- pandas: For data manipulation
+- numpy: For numerical operations
+- matplotlib & seaborn: For data visualization
+- joblib: For model serialization
+
+## Integration
+
+This model is integrated with:
+1. The AI service component (`recommender-ai/app.py`)
+2. The backend API (`recommender-backend/routes/recommendations.py`)
+3. The data insights module (`insights.py`)
+
+
+
 
