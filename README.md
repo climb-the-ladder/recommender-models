@@ -31,7 +31,7 @@ cd recommender-models
 python insights.py
 ```
 
-This will generate a new folder called `recommender-insights` with a comprehensive PDF report with visualizations and key insights about:
+This will generate a comprehensive PDF report with visualizations and key insights about:
 - Career distributions
 - Subject correlations
 - Career-subject relationships
@@ -113,8 +113,6 @@ This model is integrated with:
 2. The backend API (`recommender-backend/routes/recommendations.py`)
 3. The data insights module (`insights.py`)
 
-## License
 
-This model is for educational and demonstration purposes only. Do not use for commercial applications without proper authorization.
 
 
