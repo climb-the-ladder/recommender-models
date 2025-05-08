@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import sys
+import logging
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -8,8 +9,25 @@ from sklearn.metrics import classification_report
 from imblearn.over_sampling import SMOTE
 import joblib
 from xgboost import XGBClassifier
-from typing import Tuple, Dict, Any, Union
+from typing import Tuple, Dict, Any, Union, TypedDict
 import numpy as np
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+class ModelOutput(TypedDict):
+    """Type definition for the model training output dictionary."""
+    rf_model: RandomForestClassifier
+    xgb_model: XGBClassifier
+    scaler: StandardScaler
+    label_encoder: LabelEncoder
+    X_test: np.ndarray
+    y_test: np.ndarray
+    label_classes: np.ndarray
 
 def train_model(
     X: pd.DataFrame,
@@ -105,39 +123,39 @@ possible_paths = [
 # Try to find the data file
 csv_path = None
 for path in possible_paths:
-    print(f"Checking for data file at: {path}")
+    logger.info(f"Checking for data file at: {path}")
     if os.path.exists(path):
         csv_path = path
-        print(f"✅ Found data file at: {csv_path}")
+        logger.info(f"Found data file at: {csv_path}")
         break
 
 if csv_path is None:
-    print("❌ Error: Could not find the processed dataset file.")
+    logger.error("Could not find the processed dataset file.")
     # List directories to help debug
-    print("Contents of base directory:")
+    logger.info("Contents of base directory:")
     for item in os.listdir(base_dir):
-        print(f"  - {item}")
+        logger.info(f"  - {item}")
     
     # Check if we can find the recommender-data directory
     data_dir = os.path.join(base_dir, "recommender-data")
     if os.path.exists(data_dir):
-        print(f"Contents of {data_dir}:")
+        logger.info(f"Contents of {data_dir}:")
         for item in os.listdir(data_dir):
-            print(f"  - {item}")
+            logger.info(f"  - {item}")
         
         # Check if the processed directory exists
         processed_dir = os.path.join(data_dir, "processed")
         if os.path.exists(processed_dir):
-            print(f"Contents of {processed_dir}:")
+            logger.info(f"Contents of {processed_dir}:")
             for item in os.listdir(processed_dir):
-                print(f"  - {item}")
+                logger.info(f"  - {item}")
     
     sys.exit(1)
 
 try:
     # Load the preprocessed dataset
     df = pd.read_csv(csv_path)
-    print(f"Loaded dataframe with shape: {df.shape}")
+    logger.info(f"Loaded dataframe with shape: {df.shape}")
 
     # Features and Target
     X = df.drop(columns=["career_aspiration"])
@@ -147,15 +165,15 @@ try:
     models = train_model(X, y)
 
     # Model Evaluation
-    print("✅ Random Forest Classification Report:")
-    print(classification_report(
+    logger.info("Random Forest Classification Report:")
+    logger.info("\n" + classification_report(
         models['y_test'],
         models['rf_model'].predict(models['X_test']),
         target_names=models['label_classes']
     ))
 
-    print("\n✅ XGBoost Classification Report:")
-    print(classification_report(
+    logger.info("XGBoost Classification Report:")
+    logger.info("\n" + classification_report(
         models['y_test'],
         models['xgb_model'].predict(models['X_test']),
         target_names=models['label_classes']
@@ -167,8 +185,9 @@ try:
     joblib.dump(models['scaler'], os.path.join(script_dir, "scaler.pkl"))
     joblib.dump(models['label_encoder'], os.path.join(script_dir, "label_encoder.pkl"))
 
-    print("\n✅ Models, scaler, and label encoder saved successfully.")
+    logger.info("Models, scaler, and label encoder saved successfully.")
+    logger.info("train_model.py executed successfully.")
     
 except Exception as e:
-    print(f"❌ Error during model training: {str(e)}")
+    logger.error(f"Error during model training: {str(e)}")
     sys.exit(1)
