@@ -8,6 +8,88 @@ from sklearn.metrics import classification_report
 from imblearn.over_sampling import SMOTE
 import joblib
 from xgboost import XGBClassifier
+from typing import Tuple, Dict, Any, Union
+import numpy as np
+
+def train_model(
+    X: pd.DataFrame,
+    y: pd.Series,
+    test_size: float = 0.2,
+    random_state: int = 42
+) -> Dict[str, Any]:
+    """
+    Trains both Random Forest and XGBoost models on the given dataset with preprocessing steps.
+
+    Parameters:
+    -----------
+    X : pd.DataFrame
+        The feature matrix containing all predictor variables.
+    y : pd.Series
+        The target variable (career aspirations).
+    test_size : float, default=0.2
+        The proportion of the dataset to include in the test split.
+    random_state : int, default=42
+        Random state for reproducibility.
+
+    Returns:
+    --------
+    Dict[str, Any]
+        A dictionary containing:
+        - 'rf_model': Trained Random Forest model
+        - 'xgb_model': Trained XGBoost model
+        - 'scaler': Fitted StandardScaler
+        - 'label_encoder': Fitted LabelEncoder
+        - 'X_test': Test features
+        - 'y_test': Test labels
+        - 'label_classes': Original label classes
+    """
+    # Encode target labels
+    label_encoder = LabelEncoder()
+    y_encoded = label_encoder.fit_transform(y)
+
+    # Apply SMOTE for balancing
+    smote = SMOTE(random_state=random_state)
+    X_balanced, y_balanced = smote.fit_resample(X, y_encoded)
+
+    # Train-Test Split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_balanced, y_balanced, test_size=test_size, random_state=random_state
+    )
+
+    # Feature Scaling
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    # Random Forest Classifier
+    rf_model = RandomForestClassifier(
+        n_estimators=200,
+        class_weight='balanced',
+        random_state=random_state
+    )
+    rf_model.fit(X_train_scaled, y_train)
+
+    # XGBoost Classifier
+    xgb_model = XGBClassifier(
+        n_estimators=300,
+        learning_rate=0.05,
+        max_depth=8,
+        objective='multi:softmax',
+        num_class=len(label_encoder.classes_),
+        eval_metric='mlogloss',
+        random_state=random_state
+    )
+    xgb_model.fit(X_train_scaled, y_train)
+
+    return {
+        'rf_model': rf_model,
+        'xgb_model': xgb_model,
+        'scaler': scaler,
+        'label_encoder': label_encoder,
+        'X_test': X_test_scaled,
+        'y_test': y_test,
+        'label_classes': label_encoder.classes_
+    }
 
 # Set up paths - look for data in multiple possible locations
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -61,54 +143,29 @@ try:
     X = df.drop(columns=["career_aspiration"])
     y = df["career_aspiration"]
 
-    # Encode target labels
-    label_encoder = LabelEncoder()
-    y_encoded = label_encoder.fit_transform(y)
-
-    # Apply SMOTE for balancing
-    smote = SMOTE(random_state=42)
-    X_balanced, y_balanced = smote.fit_resample(X, y_encoded)
-
-    # Train-Test Split
-    X_train, X_test, y_train, y_test = train_test_split(X_balanced, y_balanced, test_size=0.2, random_state=42)
-
-    # Feature Scaling
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-
-    # Random Forest Classifier
-    rf_model = RandomForestClassifier(
-        n_estimators=200, 
-        class_weight='balanced',
-        random_state=42
-    )
-    rf_model.fit(X_train_scaled, y_train)
-
-    # XGBoost Classifier
-    xgb_model = XGBClassifier(
-        n_estimators=300,
-        learning_rate=0.05,
-        max_depth=8,
-        objective='multi:softmax',
-        num_class=len(label_encoder.classes_),
-        eval_metric='mlogloss',
-        random_state=42
-    )
-    xgb_model.fit(X_train_scaled, y_train)
+    # Train models
+    models = train_model(X, y)
 
     # Model Evaluation
     print("✅ Random Forest Classification Report:")
-    print(classification_report(y_test, rf_model.predict(X_test_scaled), target_names=label_encoder.classes_))
+    print(classification_report(
+        models['y_test'],
+        models['rf_model'].predict(models['X_test']),
+        target_names=models['label_classes']
+    ))
 
     print("\n✅ XGBoost Classification Report:")
-    print(classification_report(y_test, xgb_model.predict(X_test_scaled), target_names=label_encoder.classes_))
+    print(classification_report(
+        models['y_test'],
+        models['xgb_model'].predict(models['X_test']),
+        target_names=models['label_classes']
+    ))
 
     # Save Models, Scaler, and Label Encoder
-    joblib.dump(rf_model, os.path.join(script_dir, "career_rf.pkl"))
-    joblib.dump(xgb_model, os.path.join(script_dir, "career_xgb.pkl"))
-    joblib.dump(scaler, os.path.join(script_dir, "scaler.pkl"))
-    joblib.dump(label_encoder, os.path.join(script_dir, "label_encoder.pkl"))
+    joblib.dump(models['rf_model'], os.path.join(script_dir, "career_rf.pkl"))
+    joblib.dump(models['xgb_model'], os.path.join(script_dir, "career_xgb.pkl"))
+    joblib.dump(models['scaler'], os.path.join(script_dir, "scaler.pkl"))
+    joblib.dump(models['label_encoder'], os.path.join(script_dir, "label_encoder.pkl"))
 
     print("\n✅ Models, scaler, and label encoder saved successfully.")
     
