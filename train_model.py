@@ -11,6 +11,24 @@ import joblib
 from xgboost import XGBClassifier
 from typing import Tuple, Dict, Any, Union, TypedDict
 import numpy as np
+from constants import (
+    PROCESSED_DATASET_FILENAME,
+    CAREER_RF_MODEL_FILENAME,
+    CAREER_XGB_MODEL_FILENAME,
+    SCALER_FILENAME,
+    LABEL_ENCODER_FILENAME,
+    DATA_PATHS,
+    RANDOM_STATE,
+    TEST_SIZE,
+    RF_N_ESTIMATORS,
+    RF_CLASS_WEIGHT,
+    XGB_N_ESTIMATORS,
+    XGB_LEARNING_RATE,
+    XGB_MAX_DEPTH,
+    XGB_OBJECTIVE,
+    XGB_EVAL_METRIC,
+    TARGET_COLUMN
+)
 
 # Set up logging
 logging.basicConfig(
@@ -32,8 +50,8 @@ class ModelOutput(TypedDict):
 def train_model(
     X: pd.DataFrame,
     y: pd.Series,
-    test_size: float = 0.2,
-    random_state: int = 42
+    test_size: float = TEST_SIZE,
+    random_state: int = RANDOM_STATE
 ) -> Dict[str, Any]:
     """
     Trains both Random Forest and XGBoost models on the given dataset with preprocessing steps.
@@ -44,9 +62,9 @@ def train_model(
         The feature matrix containing all predictor variables.
     y : pd.Series
         The target variable (career aspirations).
-    test_size : float, default=0.2
+    test_size : float, default=TEST_SIZE
         The proportion of the dataset to include in the test split.
-    random_state : int, default=42
+    random_state : int, default=RANDOM_STATE
         Random state for reproducibility.
 
     Returns:
@@ -81,20 +99,20 @@ def train_model(
 
     # Random Forest Classifier
     rf_model = RandomForestClassifier(
-        n_estimators=200,
-        class_weight='balanced',
+        n_estimators=RF_N_ESTIMATORS,
+        class_weight=RF_CLASS_WEIGHT,
         random_state=random_state
     )
     rf_model.fit(X_train_scaled, y_train)
 
     # XGBoost Classifier
     xgb_model = XGBClassifier(
-        n_estimators=300,
-        learning_rate=0.05,
-        max_depth=8,
-        objective='multi:softmax',
+        n_estimators=XGB_N_ESTIMATORS,
+        learning_rate=XGB_LEARNING_RATE,
+        max_depth=XGB_MAX_DEPTH,
+        objective=XGB_OBJECTIVE,
         num_class=len(label_encoder.classes_),
-        eval_metric='mlogloss',
+        eval_metric=XGB_EVAL_METRIC,
         random_state=random_state
     )
     xgb_model.fit(X_train_scaled, y_train)
@@ -114,11 +132,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 base_dir = os.path.dirname(script_dir)
 
 # Define multiple possible paths for the data file
-possible_paths = [
-    os.path.join(base_dir, "recommender-data-main/processed/processed_dataset.csv"),  # Local development path
-    os.path.join(base_dir, "recommender-data/processed/processed_dataset.csv"),       # Docker container path
-    os.path.join(script_dir, "../recommender-data/processed/processed_dataset.csv"),  # Relative path
-]
+possible_paths = [os.path.join(base_dir, path) for path in DATA_PATHS]
 
 # Try to find the data file
 csv_path = None
@@ -158,8 +172,8 @@ try:
     logger.info(f"Loaded dataframe with shape: {df.shape}")
 
     # Features and Target
-    X = df.drop(columns=["career_aspiration"])
-    y = df["career_aspiration"]
+    X = df.drop(columns=[TARGET_COLUMN])
+    y = df[TARGET_COLUMN]
 
     # Train models
     models = train_model(X, y)
@@ -180,10 +194,10 @@ try:
     ))
 
     # Save Models, Scaler, and Label Encoder
-    joblib.dump(models['rf_model'], os.path.join(script_dir, "career_rf.pkl"))
-    joblib.dump(models['xgb_model'], os.path.join(script_dir, "career_xgb.pkl"))
-    joblib.dump(models['scaler'], os.path.join(script_dir, "scaler.pkl"))
-    joblib.dump(models['label_encoder'], os.path.join(script_dir, "label_encoder.pkl"))
+    joblib.dump(models['rf_model'], os.path.join(script_dir, CAREER_RF_MODEL_FILENAME))
+    joblib.dump(models['xgb_model'], os.path.join(script_dir, CAREER_XGB_MODEL_FILENAME))
+    joblib.dump(models['scaler'], os.path.join(script_dir, SCALER_FILENAME))
+    joblib.dump(models['label_encoder'], os.path.join(script_dir, LABEL_ENCODER_FILENAME))
 
     logger.info("Models, scaler, and label encoder saved successfully.")
     logger.info("train_model.py executed successfully.")
