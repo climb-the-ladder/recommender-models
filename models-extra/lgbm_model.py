@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # train_lgbm.py
+#angel-version of lgbm model
 
 import os
 import joblib
