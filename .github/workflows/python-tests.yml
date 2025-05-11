@@ -25,5 +25,4 @@ jobs:
         
     - name: Run tests
       run: |
-        cd recommender-models
         python -m pytest tests/ 
