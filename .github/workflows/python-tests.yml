@@ -21,9 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        # Additional dependencies for tests
-        pip install pytest
+        pip install -r recommender-models/requirements.txt
         
     - name: Run tests
       run: |
